@@ -1,53 +1,54 @@
 # pi-codex-dark
 
-Codex 风格的 [pi](https://github.com/earendil-works/pi-coding-agent) 定制包：自定义主题 + 彩色 footer + AI 会话标题 + vim 导航 + 右键粘贴。
+Codex-style theme and tooling for [pi](https://github.com/earendil-works/pi-coding-agent): a custom theme, colored footer, AI session titles, vim navigation, and right-click paste.
 
 ![style](https://img.shields.io/badge/pi-package-blue)
 
-## 效果
+## What you get
 
-- **codex-dark 主题**：ChatGPT 暗色调色板；工具行指令蓝（`sudo`/`cd` → `#84B4FA`）、参数淡雅红（`-p` → `#EBA0AC`）、绿色统一淡绿 `#AFD7AF`
-- **Codex 风格 footer**：第一行 `模型(浅橙) · 目录(浅绿) (分支) · thinking级别 · 会话标题(淡红)`，第二行用量统计与扩展状态（token 速度等）同行右对齐
-- **AI 会话标题**：首轮对话后由模型自动总结生成会话标题（针对 openai-completions 网关的推理模型做了 token 优化）
-- **jk-select**：所有选项列表支持 vim 风格 `j`/`k` 上下移动
-- **right-click-paste**：Linux/WSL/macOS 下鼠标右键粘贴剪贴板
+- **codex-dark theme**: ChatGPT-dark palette; tool commands in blue (`sudo`/`cd` → `#84B4FA`), parameters in soft red (`-p` → `#EBA0AC`), all greens unified to pale green `#AFD7AF`
+- **Codex-style footer**: first line `model(pale orange) · cwd(pale green) (branch) · thinking level · session title(pale red)`; second line merges usage stats with extension statuses (token speed etc.) right-aligned on one line
+- **Live token stats**: `↑ ↓ R CH` and context usage update in real time as tool calls complete while streaming
+- **AI session titles**: after the first turn, the model summarizes the conversation into a session title (with a token optimization for reasoning models behind openai-completions gateways)
+- **jk-select**: vim-style `j`/`k` navigation in every select list
+- **right-click-paste**: right-click clipboard paste on Linux/WSL/macOS
 
-## 安装
+## Install
 
 ```bash
-pi install git:github.com/YOUR_USERNAME/pi-codex-dark
+pi install git:github.com/saladxuanzhi/pi-codex-dark
 ```
 
-然后在 `~/.pi/agent/settings.json` 里启用主题（或在 pi 里 `/theme` 选择 `codex-dark`）：
+Then enable the theme in `~/.pi/agent/settings.json` (or pick `codex-dark` via `/theme` inside pi):
 
 ```json
 { "theme": "codex-dark" }
 ```
 
-重启 pi 生效。
+Restart pi to apply.
 
-## 兼容性
+## Compatibility
 
-| 包 | 兼容方式 |
+| Package | How it works together |
 |---|---|
-| `git:github.com/elpaca/pi-my-pi` | footer 会读取其 token-speed 状态（`I/F/T/O/TPS`），合并显示在统计行右侧 |
-| `npm:pi-compact-tools` | codex-dark 主题直接驱动其配色；`style: "codex"` 时观感与 Codex CLI 一致 |
-| `npm:pi-task-title` | **不要同时安装** —— 本包内置 task-title 已包含其全部功能 |
+| `git:github.com/elpaca/pi-my-pi` | The footer reads its token-speed status (`I/F/T/O/TPS`) and shows it right-aligned on the stats line |
+| `npm:pi-compact-tools` | The codex-dark theme drives its colors directly; with `style: "codex"` it looks like the Codex CLI |
+| `npm:pi-task-title` | **Do not install both** — the bundled task-title already includes all of its functionality |
 
-## 可选：pi-compact-tools 两处颜色微调
+## Optional: two color tweaks for pi-compact-tools
 
-本主题下 compact-tools 的 Explored 动词与成功圆点默认走主题色；若想要
-`Read/List/Search` 动词深蓝 `#5092D4`、成功圆点强绿 `#1BA66D`，运行：
+With this theme, compact-tools' Explored verbs and the success dot follow theme colors. If you want the
+`Read`/`List`/`Search` verbs in darker blue `#5092D4` and the success dot in vivid green `#1BA66D`, run:
 
 ```bash
 bash patches/reapply-compact-tools-colors.sh
 ```
 
-（直接补丁 npm 包，`pi update --extensions` 升级后需重跑；脚本幂等，版本变化时自动跳过。）
+(The script patches the npm package in place. Re-run it after `pi update --extensions`; it is idempotent and skips automatically if the target version changed.)
 
-## 可选：jk-select 的 vim 键位
+## Optional: vim keybindings for jk-select
 
-`~/.pi/agent/keybindings.json` 加入：
+Add to `~/.pi/agent/keybindings.json`:
 
 ```json
 {
@@ -56,21 +57,21 @@ bash patches/reapply-compact-tools-colors.sh
 }
 ```
 
-## 会话标题生成的要求
+## Session title requirements
 
-- 需要 `ctx.model` 可用（当前会话模型）
-- **openai-completions 网关背后的推理模型**（如火山方舟 ark 路由到 glm/deepseek）：请在 models.json 的模型定义里加 `"reasoning": true`，否则 64 token 的标题请求会被推理耗尽，标题退回首句原文。本包已强制发送 `reasoning_effort: "minimal"` 规避
+- Requires `ctx.model` to be available (the current session model)
+- **Reasoning models behind openai-completions gateways** (e.g. Volcengine Ark routing to glm/deepseek): add `"reasoning": true` to the model definition in models.json, otherwise the 64-token title request gets consumed by reasoning and the title falls back to the raw first prompt. This package already forces `reasoning_effort: "minimal"` to avoid that
 
-## 组件说明
+## Components
 
-| 文件 | 说明 |
+| File | Description |
 |---|---|
-| `themes/codex-dark.json` | 完整主题（基于 pi 主题 schema） |
-| `extensions/codex-footer.ts` | 通过 `ctx.ui.setFooter()` 接管内置 footer，更新 pi 无需重装 |
-| `extensions/task-title.ts` | 基于 pi-task-title v0.1.3，含 openai-completions 推理修复 |
-| `extensions/jk-select.ts` | j/k 列表导航 |
-| `extensions/right-click-paste.ts` | 右键粘贴 |
-| `patches/reapply-compact-tools-colors.sh` | compact-tools 可选颜色补丁 |
+| `themes/codex-dark.json` | Full theme (based on the pi theme schema) |
+| `extensions/codex-footer.ts` | Takes over the built-in footer via `ctx.ui.setFooter()` — survives pi updates without re-patching |
+| `extensions/task-title.ts` | Based on pi-task-title v0.1.3, with the openai-completions reasoning fix |
+| `extensions/jk-select.ts` | j/k navigation for select lists |
+| `extensions/right-click-paste.ts` | Right-click paste |
+| `patches/reapply-compact-tools-colors.sh` | Optional color patch for compact-tools |
 
 ## License
 

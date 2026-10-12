@@ -31,6 +31,11 @@ interface Snapshot {
 	thinkingLevel: string | undefined;
 	cwd: string;
 	sessionName: string | undefined;
+}
+
+/** 实时统计（按 session 条目数缓存，流式期间每次工具调用完成即刷新）。 */
+interface LiveStats {
+	key: number;
 	totals: Totals;
 	latestCacheHitRate: number | undefined;
 	contextWindow: number;
@@ -97,23 +102,39 @@ export default function codexFooter(pi: ExtensionAPI) {
 	let registered = false;
 	let snap: Snapshot | undefined;
 
+	let ctxRef: ExtensionContext | undefined;
+	let statsCache: LiveStats | undefined;
+
 	function snapshot(ctx: ExtensionContext): Snapshot {
-		const { totals, latestCacheHitRate } = collectUsage(ctx.sessionManager.getEntries() as any[]);
-		const cu = ctx.getContextUsage();
+		ctxRef = ctx;
+		statsCache = undefined;
 		return {
 			modelId: ctx.model?.id || "no-model",
 			reasoning: (ctx.model as any)?.reasoning,
 			thinkingLevel: ctx.thinkingLevel,
 			cwd: ctx.sessionManager.getCwd(),
 			sessionName: ctx.sessionManager.getSessionName(),
+		};
+	}
+
+	/** 渲染时实时计算用量；条目数未变时走缓存。 */
+	function liveStats(): LiveStats | undefined {
+		if (!ctxRef) return undefined;
+		const entries = ctxRef.sessionManager.getEntries() as any[];
+		if (statsCache && statsCache.key === entries.length) return statsCache;
+		const { totals, latestCacheHitRate } = collectUsage(entries);
+		const cu = ctxRef.getContextUsage();
+		statsCache = {
+			key: entries.length,
 			totals,
 			latestCacheHitRate,
 			contextWindow: cu?.contextWindow ?? 0,
 			contextPercent: cu?.percent ?? undefined,
 		};
+		return statsCache;
 	}
 
-	function statsLine(s: Snapshot, theme: any): string {
+	function statsLine(s: LiveStats, theme: any): string {
 		const parts: string[] = [];
 		if (s.totals.input) parts.push(`↑${formatTokens(s.totals.input)}`);
 		if (s.totals.output) parts.push(`↓${formatTokens(s.totals.output)}`);
@@ -136,7 +157,8 @@ export default function codexFooter(pi: ExtensionAPI) {
 			dispose() {},
 			render(width: number): string[] {
 				const s = snap;
-				if (!s) return [];
+				const live = liveStats();
+				if (!s || !live) return [];
 				// 第一行: 模型 · 目录 (分支) · 会话标题
 				let modelPart = MODEL_COLOR + s.modelId + RESET_FG;
 				if (s.reasoning && s.thinkingLevel && s.thinkingLevel !== "off") {
@@ -156,7 +178,7 @@ export default function codexFooter(pi: ExtensionAPI) {
 						.map(([, text]) => sanitizeStatusText(text))
 						.join(" ");
 				}
-				const stats = statsLine(s, theme);
+				const stats = statsLine(live, theme);
 				const statsW = visibleWidth(stats);
 				const statusW = visibleWidth(statusText);
 				if (statusText.length > 0 && statsW + 2 + statusW <= width) {
