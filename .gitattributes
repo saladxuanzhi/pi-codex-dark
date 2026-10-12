@@ -1,0 +1,4 @@
+*.sh text eol=lf
+*.json text
+*.md text
+*.ts text
