@@ -72,29 +72,54 @@ function formatElapsedTime(elapsedMs: number): string {
 	return `${minutes} min${seconds ? ` ${seconds} sec` : ""}`;
 }
 
+/** Model fields the title request needs to decide how much reasoning to allow. */
+type TitleRequestModel = {
+	api: string;
+	reasoning: boolean;
+	thinkingLevelMap?: Record<string, string | null | undefined>;
+};
+
+/** Cheapest thinking settings first; two candidates leave room for one retry. */
+const TITLE_THINKING_LEVELS = ["off", "minimal", "low"] as const;
+
+type TitleThinkingLevel = (typeof TITLE_THINKING_LEVELS)[number];
+
+/**
+ * Thinking levels the model actually accepts, cheapest first ("off" means reasoning can be disabled).
+ * Levels whose thinkingLevelMap entry is null are rejected by the gateway (ark answers 400 and maps
+ * minimal to none), so they are skipped instead of being attempted.
+ */
+function titleThinkingLevels(model: TitleRequestModel): TitleThinkingLevel[] {
+	if (!model.reasoning) return [];
+	return TITLE_THINKING_LEVELS.filter((level) => {
+		const mapped = model.thinkingLevelMap?.[level];
+		if (mapped === null) return false;
+		// Models without any thinkingLevelMap keep the legacy "minimal" behaviour.
+		return mapped !== undefined || level === "minimal";
+	}).slice(0, 2);
+}
+
 /** Disable or reduce thinking by API and limit caching and output for the one-shot title request. */
-function createTitleRequestOptions(api: string, reasoning: boolean, signal: AbortSignal): TitleRequestOptions {
-	const options: TitleRequestOptions = { signal, maxTokens: 64, cacheRetention: "none" };
-	// ark 等 openai-completions 网关默认路由到推理模型：不压缩推理时 64 个 token 会被
-	// reasoning 耗尽，content 为空，标题退回首句原文。因此无论模型是否声明 reasoning，
-	// 都显式要求 minimal 推理（实测 ark 接受 minimal 并正常返回标题）。
-	if (api === "openai-completions") return { ...options, reasoningEffort: "minimal" };
-	if (!reasoning) return options;
-	switch (api) {
+function createTitleRequestOptions(model: TitleRequestModel, level: TitleThinkingLevel | undefined, signal: AbortSignal): TitleRequestOptions {
+	// Without thinking the answer is a few tokens; with thinking the reasoning phase shares the same budget,
+	// so a 64-token cap would be consumed by reasoning and leave content empty, falling back to the raw first prompt.
+	const options: TitleRequestOptions = { signal, maxTokens: level === "off" || level === undefined ? 64 : 1024, cacheRetention: "none" };
+	if (level === undefined) return options;
+	switch (model.api) {
+		case "openai-completions":
+			return { ...options, reasoningEffort: level };
 		case "anthropic-messages":
-			return { ...options, thinkingEnabled: false };
+			return level === "off" ? { ...options, thinkingEnabled: false } : options;
 		case "google-generative-ai":
 		case "google-vertex":
-			return { ...options, thinking: { enabled: false } };
+			return level === "off" ? { ...options, thinking: { enabled: false } } : options;
 		case "openai-codex-responses":
-			return { ...options, reasoningEffort: "none", reasoningSummary: "off", textVerbosity: "low" };
-		case "mistral-conversations":
-			return { ...options, reasoningEffort: "none" };
-		case "openai-completions":
-			return { ...options, reasoningEffort: "minimal" };
+			return { ...options, reasoningEffort: level === "off" ? "none" : level, reasoningSummary: "off", textVerbosity: "low" };
 		case "openai-responses":
 		case "azure-openai-responses":
-			return { ...options, maxTokens: 512, reasoningEffort: "low" };
+			return { ...options, reasoningEffort: level === "off" ? "none" : level, reasoningSummary: "off", textVerbosity: "low" };
+		case "mistral-conversations":
+			return { ...options, reasoningEffort: level === "off" ? "none" : level };
 		default:
 			return options;
 	}
@@ -318,13 +343,28 @@ export default function (pi: ExtensionAPI) {
 					content: [{ type: "text", text: prompt.slice(0, 6000) }],
 					timestamp: Date.now(),
 				};
-				const response = await ctx.modelRegistry.complete(
-					ctx.model,
-					{ systemPrompt: TITLE_SYSTEM_PROMPT, messages: [message] },
-					createTitleRequestOptions(ctx.model.api, ctx.model.reasoning, controller.signal),
-				);
-				const generatedTitle = extractText(response.content);
-				if (generatedTitle.trim()) resolvedTitle = normalizeTitle(generatedTitle);
+				const context = { systemPrompt: TITLE_SYSTEM_PROMPT, messages: [message] };
+				// Try the cheapest thinking setting first; escalate once when the gateway rejects the request
+				// or answers with reasoning only (empty content), which is what made titles fall back to the first prompt.
+				const levels: (TitleThinkingLevel | undefined)[] = titleThinkingLevels(ctx.model);
+				if (levels.length === 0) levels.push(undefined);
+				for (const level of levels) {
+					try {
+						const response = await ctx.modelRegistry.complete(
+							ctx.model,
+							context,
+							createTitleRequestOptions(ctx.model, level, controller.signal),
+						);
+						const generatedTitle = extractText(response.content).trim();
+						if (generatedTitle) {
+							resolvedTitle = normalizeTitle(generatedTitle);
+							break;
+						}
+					} catch {
+						// This thinking level is rejected by the provider; try the next one.
+					}
+					if (controller.signal.aborted) break;
+				}
 			} catch {
 				// Summarization is only a terminal enhancement; fall back to the local first-task title on failure.
 			}
