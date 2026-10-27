@@ -7,7 +7,8 @@ Codex-style theme and tooling for [pi](https://github.com/earendil-works/pi-codi
 ## What you get
 
 - **codex-dark theme**: ChatGPT-dark palette; tool commands in blue (`sudo`/`cd` → `#84B4FA`), parameters in soft red (`-p` → `#EBA0AC`), all greens unified to pale green `#AFD7AF`
-- **Codex-style footer**: first line `model(pale orange) · cwd(pale green) (branch) · thinking level · session title(pale red)`; second line merges usage stats with extension statuses (token speed etc.) right-aligned on one line
+- **Codex-style footer**: first line `model(pale orange) · cwd(pale green) (branch) · thinking level · session title(catppuccin-mocha accent)`; second line merges usage stats with extension statuses (token speed etc.) right-aligned on one line
+- **Catppuccin session title colors**: each new session is assigned one of the 14 Catppuccin Mocha accents (rosewater → lavender) as its title color; the color is stable when a session is resumed and a new session avoids repeating the previous one
 - **Live token stats**: `↑ ↓ R CH` and context usage update in real time as tool calls complete while streaming
 - **AI session titles**: after the first turn, the model summarizes the conversation into a session title (with a token optimization for reasoning models behind openai-completions gateways)
 - **jk-select**: vim-style `j`/`k` navigation in every select list
@@ -26,6 +27,21 @@ Then enable the theme in `~/.pi/agent/settings.json` (or pick `codex-dark` via `
 ```
 
 Restart pi to apply.
+
+## Session title colors
+
+The footer colors the session title with the palette below. The color is derived from the session id, so it survives
+restarts and resumes, and new sessions rotate to a different accent:
+
+| Name | HEX | Name | HEX |
+|---|---|---|---|
+| Rosewater | `#F5E0DC` | Peach | `#FAB387` |
+| Flamingo | `#F2CDCD` | Yellow | `#F9E2AF` |
+| Pink | `#F5C2E7` | Green | `#A6E3A1` |
+| Mauve | `#CBA6F7` | Teal | `#94E2D5` |
+| Red | `#F38BA8` | Sky | `#89DCEB` |
+| Maroon | `#EBA0AC` | Sapphire | `#74C7EC` |
+| Blue | `#89B4FA` | Lavender | `#B4BEFE` |
 
 ## Compatibility
 
