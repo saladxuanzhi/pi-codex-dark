@@ -6,7 +6,8 @@ Codex-style theme and tooling for [pi](https://github.com/earendil-works/pi-codi
 
 ## What you get
 
-- **codex-dark theme**: ChatGPT-dark palette; tool commands in blue (`sudo`/`cd` → `#84B4FA`), parameters in soft red (`-p` → `#EBA0AC`), all greens unified to pale green `#AFD7AF`
+- **Codex markdown rendering**: Codex CLI's Catppuccin palette for headings, bold/italic, inline code, links, quotes, list markers and fenced code — Mocha on dark terminals, Latte on light ones
+- **codex-dark / codex-light themes**: the existing dark UI palette plus a matching light theme; tool commands stay blue (`sudo`/`cd` → `#84B4FA`), parameters soft red (`-p` → `#EBA0AC`), all greens pale green `#AFD7AF`
 - **Codex-style footer**: first line `model(pale orange) · cwd(pale green) (branch) · thinking level · session title(catppuccin-mocha accent)`; second line merges usage stats with extension statuses (token speed etc.) right-aligned on one line
 - **Catppuccin session title colors**: each new session is assigned one of the 14 Catppuccin Mocha accents (rosewater → lavender) as its title color; the color is stable when a session is resumed and a new session avoids repeating the previous one
 - **Live token stats**: `↑ ↓ R CH` and context usage update in real time as tool calls complete while streaming
@@ -20,13 +21,35 @@ Codex-style theme and tooling for [pi](https://github.com/earendil-works/pi-codi
 pi install git:github.com/saladxuanzhi/pi-codex-dark
 ```
 
-Then enable the theme in `~/.pi/agent/settings.json` (or pick `codex-dark` via `/theme` inside pi):
+Then enable the automatic light/dark pair in `~/.pi/agent/settings.json` (or pick it via `/theme` inside pi):
 
 ```json
-{ "theme": "codex-dark" }
+{ "theme": "codex-light/codex-dark" }
 ```
 
-Restart pi to apply.
+Pi chooses `codex-light` (Catppuccin Latte) or `codex-dark` (Catppuccin Mocha) from the terminal background. Use `"codex-dark"` or `"codex-light"` alone to force one appearance. Restart pi to apply.
+
+## Markdown colors
+
+The bundled `codex-markdown` extension reproduces Codex's terminal rendering on top of pi's Markdown component. It follows the active theme's appearance, so the automatic `codex-light/codex-dark` pair switches palettes with the terminal. Codex's visible heading markers (`#`, `##`, …) are kept at every heading level.
+
+| Markdown element | Dark (Mocha) | Light (Latte) | Style |
+|---|---|---|---|
+| Body text and list content | terminal default | terminal default | regular |
+| `# H1` | `#F38BA8` | `#D20F39` | bold + underline |
+| `## H2` | `#FAB387` | `#FE640B` | bold |
+| `### H3` | `#F9E2AF` | `#DF8E1D` | bold + italic |
+| `####`–`######` | `#F9E2AF` | `#DF8E1D` | italic (all fall back to the generic heading yellow) |
+| `**bold**`, `*italic*` | `#F38BA8` | `#D20F39` | bold / italic |
+| Inline code | `#A6E3A1` | `#40A02B` | regular |
+| Link text | `#89B4FA` | `#1E66F5` | underline |
+| Quote text | `#F5C2E7` | `#EA76CB` | quote style |
+| Unordered list bullet | `#94E2D5` | `#179299` | marker only |
+| Ordered list number | ANSI LightBlue | ANSI LightBlue | terminal palette decides the exact color |
+| `~~strikethrough~~` | inherited | inherited | strikethrough only |
+| Code strings / numbers+bools / keywords / functions / comments | `#A6E3A1` / `#FAB387` / `#CBA6F7` / `#89B4FA` / `#9399B2` | `#40A02B` / `#FE640B` / `#8839EF` / `#1E66F5` / `#7C7F93` | fenced blocks with a language tag |
+
+The footer keeps its existing Codex styling. Theme values for `md*` and `syntax*` are also used by HTML exports.
 
 ## Session title colors
 
@@ -48,7 +71,7 @@ restarts and resumes, and new sessions rotate to a different accent:
 | Package | How it works together |
 |---|---|
 | `git:github.com/elpaca/pi-my-pi` | The footer reads its token-speed status (`I/F/T/O/TPS`) and shows it right-aligned on the stats line |
-| `npm:pi-compact-tools` | The codex-dark theme drives its colors directly; with `style: "codex"` it looks like the Codex CLI |
+| `npm:pi-compact-tools` | The codex-dark/codex-light themes drive its colors directly; with `style: "codex"` it looks like the Codex CLI |
 | `npm:pi-task-title` | **Do not install both** — the bundled task-title already includes all of its functionality |
 
 ## Optional: two color tweaks for pi-compact-tools
@@ -82,7 +105,9 @@ Add to `~/.pi/agent/keybindings.json`:
 
 | File | Description |
 |---|---|
-| `themes/codex-dark.json` | Full theme (based on the pi theme schema) |
+| `themes/codex-dark.json` | Dark theme (appearance `dark`, markdown/syntax in Catppuccin Mocha) |
+| `themes/codex-light.json` | Light theme (appearance `light`, markdown/syntax in Catppuccin Latte) |
+| `extensions/codex-markdown.ts` | Runtime patch for per-level heading colors, colored bold/italic, quote/list marker colors |
 | `extensions/codex-footer.ts` | Takes over the built-in footer via `ctx.ui.setFooter()` — survives pi updates without re-patching |
 | `extensions/task-title.ts` | Based on pi-task-title v0.1.3, with the openai-completions reasoning fix |
 | `extensions/jk-select.ts` | j/k navigation for select lists |

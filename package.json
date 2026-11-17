@@ -1,7 +1,7 @@
 {
   "name": "pi-codex-dark",
   "version": "1.0.0",
-  "description": "Codex-style theme and tooling for pi: codex-dark theme, colored footer, AI session titles, vim j/k navigation, right-click paste.",
+  "description": "Codex-style Markdown rendering and themes for pi: Catppuccin Mocha/Latte colors, colored footer, AI session titles, vim j/k navigation, right-click paste.",
   "type": "module",
   "license": "MIT",
   "keywords": [
@@ -18,13 +18,15 @@
   },
   "pi": {
     "extensions": [
+      "./extensions/codex-markdown.ts",
       "./extensions/codex-footer.ts",
       "./extensions/task-title.ts",
       "./extensions/jk-select.ts",
       "./extensions/right-click-paste.ts"
     ],
     "themes": [
-      "./themes/codex-dark.json"
+      "./themes/codex-dark.json",
+      "./themes/codex-light.json"
     ]
   },
   "files": [
